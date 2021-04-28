@@ -102,7 +102,7 @@ class MultilabelClassificationHead(nn.Module):
         else:
             acc = (((output - 0.5) *
                     (target - 0.5)).min(dim=1)[0] > 0).float().mean()
-        accuracy['acc_classification'] = acc
+        accuracy['acc_classification'] = acc.detach().item()
         return accuracy
 
     def inference_model(self, x, flip_pairs=None):
