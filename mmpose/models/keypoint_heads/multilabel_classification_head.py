@@ -38,15 +38,15 @@ class MultilabelClassificationHead(nn.Module):
         feature_dims = [in_channels] + \
                        [dim for dim in hidden_dims] + \
                        [num_labels]
-        self.fc = self._make_linear_layers(feature_dims)
+        self.fc = self._make_linear_layers(feature_dims, relu_final=False)
 
-    def _make_linear_layers(self, feat_dims, relu_final=True):
+    def _make_linear_layers(self, feat_dims, relu_final=False):
         """Make linear layers."""
         layers = []
         for i in range(len(feat_dims) - 1):
             layers.append(nn.Linear(feat_dims[i], feat_dims[i + 1]))
-            if i < len(feat_dims) - 2 or (i == len(feat_dims) - 2
-                                          and relu_final):
+            if i < len(feat_dims) - 2 or \
+                    (i == len(feat_dims) - 2 and relu_final):
                 layers.append(nn.ReLU(inplace=True))
         return nn.Sequential(*layers)
 

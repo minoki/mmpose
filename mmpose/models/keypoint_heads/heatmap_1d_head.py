@@ -38,7 +38,7 @@ class Heatmap1DHead(nn.Module):
         feature_dims = [in_channels] + \
                        [dim for dim in hidden_dims] + \
                        [heatmap_size]
-        self.fc = self._make_linear_layers(feature_dims)
+        self.fc = self._make_linear_layers(feature_dims, relu_final=False)
 
     def soft_argmax_1d(self, heatmap1d):
         heatmap1d = F.softmax(heatmap1d, 1)
@@ -48,13 +48,13 @@ class Heatmap1DHead(nn.Module):
         coord = accu.sum(dim=1)
         return coord
 
-    def _make_linear_layers(self, feat_dims, relu_final=True):
+    def _make_linear_layers(self, feat_dims, relu_final=False):
         """Make linear layers."""
         layers = []
         for i in range(len(feat_dims) - 1):
             layers.append(nn.Linear(feat_dims[i], feat_dims[i + 1]))
-            if i < len(feat_dims) - 2 or (i == len(feat_dims) - 2
-                                          and relu_final):
+            if i < len(feat_dims) - 2 or \
+                    (i == len(feat_dims) - 2 and relu_final):
                 layers.append(nn.ReLU(inplace=True))
         return nn.Sequential(*layers)
 
