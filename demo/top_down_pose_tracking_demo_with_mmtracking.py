@@ -2,9 +2,10 @@ import os
 from argparse import ArgumentParser
 
 import cv2
+import time
 
 from mmpose.apis import (inference_top_down_pose_model, init_pose_model,
-                         vis_pose_tracking_result)
+                         vis_pose_tracking_result, get_track_id)
 
 try:
     from mmtrack.apis import inference_mot
@@ -13,6 +14,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     has_mmtrack = False
 
+import mmcv
 
 def process_mmtracking_results(mmtracking_results):
     """Process mmtracking results.
@@ -109,18 +111,30 @@ def main():
     # e.g. use ('backbone', ) to return backbone feature
     output_layer_names = None
 
+    tracking_time = 0.0
+    pose_time = 0.0
+    show_time = 0.0
+
+    pose_results_last = []
+    next_track_id = 0
+
     frame_id = 0
     while (cap.isOpened()):
+        # if frame_id >= 1000:
+        #     break
         flag, img = cap.read()
         if not flag:
             break
 
+        t = time.monotonic()
         mmtracking_results = inference_mot(
             tracking_model, img, frame_id=frame_id)
 
         # keep the person class bounding boxes.
         person_results = process_mmtracking_results(mmtracking_results)
+        tracking_time += time.monotonic() - t
 
+        t = time.monotonic()
         # test a single image, with a list of bboxes.
         pose_results, returned_outputs = inference_top_down_pose_model(
             pose_model,
@@ -131,7 +145,18 @@ def main():
             dataset=dataset,
             return_heatmap=return_heatmap,
             outputs=output_layer_names)
+        pose_time += time.monotonic() - t
 
+        #print(len(pose_results))
+
+        pose_results, next_track_id = get_track_id(pose_results, pose_results_last, next_track_id)
+        pose_results_last = pose_results
+
+        #for res in pose_results:
+        #    if 'track_id' not in res:
+         #       print(pose_results)
+
+        t = time.monotonic()
         # show the results
         vis_img = vis_pose_tracking_result(
             pose_model,
@@ -148,16 +173,22 @@ def main():
 
         if save_out_video:
             videoWriter.write(vis_img)
+        show_time += time.monotonic() - t
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break
 
         frame_id += 1
+
+    print(f"frame_id: {frame_id}")
+    print(f"tracking: {tracking_time:.2f}")
+    print(f"pose: {pose_time:2f}")
+    print(f"show: {show_time:.2f}")
 
     cap.release()
     if save_out_video:
         videoWriter.release()
-    cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

@@ -78,7 +78,11 @@ def main():
     # e.g. use ('backbone', ) to return backbone feature
     output_layer_names = None
 
+    frame_id = 0
     while (cap.isOpened()):
+        if frame_id >= 1000:
+            break
+
         flag, img = cap.read()
         if not flag:
             break
@@ -107,13 +111,16 @@ def main():
         if save_out_video:
             videoWriter.write(vis_img)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if args.show and cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
+        frame_id += 1
 
     cap.release()
     if save_out_video:
         videoWriter.release()
-    cv2.destroyAllWindows()
+    if args.show:
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
