@@ -116,8 +116,12 @@ def main():
 
     next_id = 0
     pose_results = []
+    # frame_id = 0
     while (cap.isOpened()):
         pose_results_last = pose_results
+
+        # if frame_id >= 1000:
+        #     break
 
         flag, img = cap.read()
         if not flag:
@@ -127,6 +131,8 @@ def main():
 
         # keep the person class bounding boxes.
         person_results = process_mmdet_results(mmdet_results, args.det_cat_id)
+
+        # print(person_results)
 
         # test a single image, with a list of bboxes.
         pose_results, returned_outputs = inference_top_down_pose_model(
@@ -158,13 +164,15 @@ def main():
         if save_out_video:
             videoWriter.write(vis_img)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break
+
+        # frame_id = frame_id + 1
 
     cap.release()
     if save_out_video:
         videoWriter.release()
-    cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

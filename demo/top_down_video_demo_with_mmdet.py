@@ -2,6 +2,7 @@ import os
 from argparse import ArgumentParser
 
 import cv2
+import time
 
 from mmpose.apis import (inference_top_down_pose_model, init_pose_model,
                          vis_pose_result)
@@ -11,6 +12,9 @@ try:
     has_mmdet = True
 except (ImportError, ModuleNotFoundError):
     has_mmdet = False
+
+import numpy as np
+import mmcv
 
 
 def process_mmdet_results(mmdet_results, cat_id=0):
@@ -29,6 +33,7 @@ def process_mmdet_results(mmdet_results, cat_id=0):
 
     person_results = []
     for bbox in bboxes:
+        # bbox: ndarray of shape (5,)
         person = {}
         person['bbox'] = bbox
         person_results.append(person)
@@ -112,16 +117,47 @@ def main():
     # e.g. use ('backbone', ) to return backbone feature
     output_layer_names = None
 
+    read_time = 0.0
+    tracking_time = 0.0
+    pose_time = 0.0
+    show_time = 0.0
+
+    total_number_of_people = 0
+
+    frame_id = 0
     while (cap.isOpened()):
+        t = time.monotonic()
         flag, img = cap.read()
         if not flag:
             break
+
+        #if frame_id % 3 != 0:
+        #    frame_id += 1
+        #    continue
+
+        if False:
+            h = img.shape[0]
+            w = img.shape[1]
+
+            if frame_id % 10 == 0:
+                print(f"{w}, {h}")
+
+            img = cv2.resize(img, (w // 2, h // 2))
+            if frame_id % 10 == 0:
+                print(img.shape)
+        read_time += time.monotonic() - t
+
+        t = time.monotonic()
         # test a single image, the resulting box is (x1, y1, x2, y2)
         mmdet_results = inference_detector(det_model, img)
 
         # keep the person class bounding boxes.
         person_results = process_mmdet_results(mmdet_results, args.det_cat_id)
+        tracking_time += time.monotonic() - t
 
+        total_number_of_people += len(person_results)
+
+        t = time.monotonic()
         # test a single image, with a list of bboxes.
         pose_results, returned_outputs = inference_top_down_pose_model(
             pose_model,
@@ -132,7 +168,15 @@ def main():
             dataset=dataset,
             return_heatmap=return_heatmap,
             outputs=output_layer_names)
+        pose_time += time.monotonic() - t
 
+        t = time.monotonic()
+        person_results_x = []
+        bboxes = mmdet_results[0]
+        for bbox in bboxes:
+            if bbox[4] > 0.1:
+                person_results_x.append(bbox)
+        img = mmcv.imshow_bboxes(img, np.array(person_results_x), colors='yellow')
         # show the results
         vis_img = vis_pose_result(
             pose_model,
@@ -147,15 +191,26 @@ def main():
 
         if save_out_video:
             videoWriter.write(vis_img)
+        show_time += time.monotonic() - t
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break
+        frame_id += 1
+
+    print(f"read: {read_time:.2f}")
+    print(f"tracking: {tracking_time:.2f}")
+    print(f"total number of people: {total_number_of_people}")
+    print(f"pose: {pose_time:.2f}")
+    print(f"show: {show_time:.2f}")
 
     cap.release()
     if save_out_video:
         videoWriter.release()
-    cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
+    t = time.monotonic()
     main()
+    total_time = time.monotonic() - t
+    print(f"total: {total_time:.2f}")
